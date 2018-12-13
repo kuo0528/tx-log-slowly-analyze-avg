@@ -53,8 +53,8 @@ def unique_count_of_txid(day_tuning_var):
 	es = Elasticsearch([es_url])
 	unique_count = es.search(
 		index = 'txlog-*',
-		size = 0,
 		body = '{\
+			"size": 0,\
 			"query": {\
 				"bool": {\
 					"must" : [\
@@ -93,8 +93,8 @@ def get_txid_data(day_tuning_var, txid_size):
 	es = Elasticsearch([es_url])
 	tx_dataset = es.search(
 		index = 'txlog-*',
-		size = 0,
 		body = '{\
+			"size": 0,\
 			"query": {\
 				"bool": {\
 					"must" : [\
@@ -145,7 +145,61 @@ def get_total_hits(day):
 	return total_hits_num
 
 
-	
+################################################################
+##### Get Txid Info Like privilegename, privilegecategory  #####
+################################################################
+
+def get_txid_info (key_var):
+	es = Elasticsearch([es_url])
+	tx_dataset = es.search(
+		index = 'txlog-*',
+		body = '{\
+			"size": 1,\
+			"_source": {\
+        	"includes": [ "privilegename", "privilegecategory" ],\
+        	"excludes": []\
+    	},\
+			"query" : {\
+				"term" : { "Transaction_ID.keyword" : "' + key_var + '" }\
+			}\
+		}'
+	)
+	return tx_dataset
+
+
+
+def get_es_count(day_tuning_var, key_var):	
+	es = Elasticsearch([es_url])
+	es_count = es.count(
+		index = 'txlog-*',
+		body = '{\
+			"query": {\
+				"bool": {\
+					"must" : [\
+					{\
+						"range" : {\
+							"@timestamp" : {\
+							  "gte": "now-' + str(day_tuning_var) + 'd/d",\
+							  "lte": "now-' + str(day_tuning_var) + 'd/d",\
+							  "time_zone": "+08:00",\
+							  "format": "yyyy-MM-dd HH:mm:ss"\
+							}\
+						}\
+					},\
+					{"term" : { "Transaction_ID.keyword" : "' + key_var + '" }}\
+					],\
+					"must_not": [\
+						{"term": {"Return_code.keyword": "Incoming"}},\
+						{"term": {"Tx_message.keyword": "response"}}\
+					]\
+				}\
+			}\
+		}'
+	)
+	return es_count["count"]
+
+
+
 ###########################################
 ##### Put the Data into Elasticsearch #####
 ###########################################
@@ -171,7 +225,8 @@ def index_data_to_elasticsearch(indexname_var, datetime_var, Transaction_ID_var,
 		}'
 	)
 
-	
+
+
 ### element is elasticsearch json data block, element['key'] is the value in key field
 """     a data block of elasticsearch json like following
 {
@@ -205,14 +260,13 @@ def index_data_to_elasticsearch(indexname_var, datetime_var, Transaction_ID_var,
 	
 for i in range(files):
 
-	################################
-	##### Prepare Today's Data #####
-	################################
+	####################################
+	##### Prepare Today's avg Data #####
+	####################################
 	
 	### Get Today's Datetime
-	today_datetime = get_from_to_datetime(day_tuning + i)
-	
-	print("Today's TXID Average List ===== " + str(today_datetime) + "=====" )
+	today_datetime = get_from_to_datetime(day_tuning + i)	
+	#print("Today's TXID Average List ===== " + str(today_datetime) + "=====" )
 	
 	### Declare today_dict is a Dictionary Structure
 	today_dict = {}
@@ -221,41 +275,39 @@ for i in range(files):
 	for element in get_txid_data(day_tuning + i, unique_count_of_txid(day_tuning + i))['aggregations']['data_bucket']['buckets']:
 	
 		### Explain: element['key'] as ("key": "TXNPCP09"); 
-		print(element['key'], str(element['txid_average']['value']), sep=', ')
 		today_dict[element['key']] = element['txid_average']['value']
+		#print(element['key'], str(element['txid_average']['value']), sep=', ')
 	
 	
 	
-	####################################
-	##### Prepare Yesterday's Data #####
-	####################################
+	########################################
+	##### Prepare Yesterday's avg Data #####
+	########################################
 	
 	##### Get Yesterday's Datetime
 	yesterday_datetime = get_from_to_datetime(day_tuning + 1 + i)
-	
-	print("Yesterday's TXID Average List ===== " + str(yesterday_datetime) + "=====" )
+	#print("Yesterday's TXID Average List ===== " + str(yesterday_datetime) + "=====" )
 
 	##### Declareto yesterday_dict is a Dictionary Structure
 	yesterday_dict = {}
 
 	for element in get_txid_data(day_tuning + 1 + i, unique_count_of_txid(day_tuning + 1 + i))['aggregations']['data_bucket']['buckets']:
-		print(element['key'], str(element['txid_average']['value']), sep=', ')
 		yesterday_dict[element['key']] = element['txid_average']['value']
+		#print(element['key'], str(element['txid_average']['value']), sep=', ')
 	
 	
 	
-	
-	###############################################################################################################################################################################
-    ##### Make the Result. Format: ( 'tx_id', today_avg, yesterday_avg, (1|0) ). Explain: '1' as both today & yesterday have data; '0' as today have data but yesterday none. #####
-	###############################################################################################################################################################################
+	###############################################################################################################################################################################################################################
+    ##### Make the Result. Format: ( 'tx_id', privilegename, privilegecategory, today_avg, yesterday_avg, txid's count, (1|0) ). Explain: '1' as both today & yesterday have data; '0' as today have data but yesterday none. #####
+	###############################################################################################################################################################################################################################
 	
 	my_list = []
 	
 	for key, value in today_dict.items():
 		if yesterday_dict.get(key, 'empty') != 'empty':
-			my_list.append((key, today_dict.get(key), yesterday_dict.get(key), today_dict.get(key) - yesterday_dict.get(key), 1))
+			my_list.append((key, get_txid_info(key)['hits']['hits'][0]['_source']['privilegename'], get_txid_info(key)['hits']['hits'][0]['_source']['privilegecategory'], today_dict.get(key), yesterday_dict.get(key), today_dict.get(key) - yesterday_dict.get(key), get_es_count(day_tuning, key), 1))
 		else:
-			my_list.append((key, today_dict.get(key), yesterday_dict.get(key), float(today_dict.get(key)), 0))
+			my_list.append((key, get_txid_info(key)['hits']['hits'][0]['_source']['privilegename'], get_txid_info(key)['hits']['hits'][0]['_source']['privilegecategory'], today_dict.get(key), yesterday_dict.get(key), float(today_dict.get(key)), get_es_count(day_tuning, key), 0))
 			
 	sorted_my_list = sorted(my_list, key=lambda x: x[3], reverse=True)
 
@@ -281,7 +333,3 @@ for i in range(files):
 		'''
 	
 	print('==========================================================================================')
-
-print('ttt')
-print('ttt')
-print('ttt')
