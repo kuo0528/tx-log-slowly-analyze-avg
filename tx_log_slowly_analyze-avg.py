@@ -312,9 +312,9 @@ for i in range(files):
 	
 	for key, value in today_dict.items():
 		if yesterday_dict.get(key, 'empty') != 'empty':
-			my_list.append((key, get_txid_info(key)['hits']['hits'][0]['_source']['privilegename'], get_txid_info(key)['hits']['hits'][0]['_source']['privilegecategory'], today_dict.get(key), yesterday_dict.get(key), today_dict.get(key) - yesterday_dict.get(key), get_es_count(day_tuning, key), 1))
+			my_list.append((key, get_txid_info(key)['hits']['hits'][0]['_source']['privilegename'], get_txid_info(key)['hits']['hits'][0]['_source']['privilegecategory'], today_dict.get(key), yesterday_dict.get(key), today_dict.get(key) - yesterday_dict.get(key), get_es_count(day_tuning + i, key), 1))
 		else:
-			my_list.append((key, get_txid_info(key)['hits']['hits'][0]['_source']['privilegename'], get_txid_info(key)['hits']['hits'][0]['_source']['privilegecategory'], today_dict.get(key), yesterday_dict.get(key), float(today_dict.get(key)), get_es_count(day_tuning, key), 0))
+			my_list.append((key, get_txid_info(key)['hits']['hits'][0]['_source']['privilegename'], get_txid_info(key)['hits']['hits'][0]['_source']['privilegecategory'], today_dict.get(key), yesterday_dict.get(key), float(today_dict.get(key)), get_es_count(day_tuning + i, key), 0))
 			
 	sorted_my_list = sorted(my_list, key=lambda x: x[3], reverse=True)
 
