@@ -168,6 +168,10 @@ def get_txid_info (key_var):
 
 
 
+###########################
+##### Get Txid Count  #####
+###########################
+
 def get_es_count(day_tuning_var, key_var):	
 	es = Elasticsearch([es_url])
 	es_count = es.count(
@@ -204,7 +208,7 @@ def get_es_count(day_tuning_var, key_var):
 ##### Put the Data into Elasticsearch #####
 ###########################################
 
-def index_data_to_elasticsearch(indexname_var, datetime_var, Transaction_ID_var, today_weight_var, yesterday_weight_var, weight_difference_var, data_status_flag_var):
+def index_data_to_elasticsearch(indexname_var, datetime_var, Transaction_ID_var, privilegename_var, privilegecategory_var, today_weight_var, yesterday_weight_var, weight_difference_var, count_var ,data_status_flag_var):
 	es = Elasticsearch([es_url])
 	es_indexname = indexname_var + '-' + str(datetime_var.strftime('%Y'))
 	type_name = indexname_var
@@ -217,9 +221,12 @@ def index_data_to_elasticsearch(indexname_var, datetime_var, Transaction_ID_var,
 		doc_type = type_name,
 		body = '{\
 			"Transaction_ID" : "' + Transaction_ID_var + '",\
+			"privilegename" : "' + privilegename_var + '",\
+			"privilegecategory" : "' + privilegecategory_var + '",\
 			"today_avg" : ' + str(today_weight_var) + ',\
 			"yesterday_avg" : ' + str(yesterday_weight_var) + ',\
 			"avg_difference" : ' + str(weight_difference_var) + ',\
+			"count" : ' + str(count_var) + ',\
 			"data_status_flag" : ' + str(data_status_flag_var) + ',\
 			"@timestamp" : "' + str(es_timestamp) + '"\
 		}'
@@ -325,7 +332,7 @@ for i in range(files):
 		print (elem)
 		
 		### Here put the data to elasticsearch
-		#index_data_to_elasticsearch(indexname, get_from_to_datetime(day_tuning+i), elem[0], elem[1], elem[2], elem[3], elem[4])
+		index_data_to_elasticsearch(indexname, get_from_to_datetime(day_tuning+i), elem[0], elem[1], elem[2], elem[3], elem[4], elem[5], elem[6], elem[7])
 		
 		'''
 		f.write( str(elem[0]) + ',' + str(elem[1]) + ',' + str(elem[2]) + ',' + str(elem[3]) + ',' + str(elem[4]) )
@@ -334,4 +341,3 @@ for i in range(files):
 	
 	print('==========================================================================================')
 
-print('issue1')	
